@@ -13,3 +13,9 @@ foreach x (*.epub) {
 ```
 In the 3rd line, `>` redirects `stdin` to the file `"$x".log`, and `2>&1` redirects stderr to stdin to log them together. The final `&` runs `ebook-convert` as a background process, that can be monitored in `htop` with the printed PID, or using the `jobs` utility.
 
+
+## Connect to `ssh` host when it is online:
+```
+until nc -vzw 2 $host 22; do sleep 2; done && ssh $host
+```
+Very useful when rebooting hosts (VMs, IoT).
