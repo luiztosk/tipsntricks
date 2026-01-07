@@ -1,7 +1,100 @@
 
+## Nginx Reverse Proxy, a simple config in multiple files
+*2026-01-06 22:25:00-03:00*
+
+
+### Main Entry Point and HTTPS redirect (mainhost.mydomain.com)
+
+I decided to just use nginx directly on my OrangePi host, as I was struggling with Docker and its local storage permissions.
+
+The main entry point contains my SSL cert locations, a simple log format, and two servers, one that redirects all HTTP requests to HTTPS, and another one that currently displays nginx's default page, but will be the home of my host:
+
+```bash
+ssl_certificate /etc/porkcron/mydomain.com/certificate.pem;
+ssl_certificate_key /etc/porkcron/mydomain.com/private_key.pem;
+
+log_format upstream_logging '[$time_local] $remote_addr -> $scheme://$server_name to: $upstream_addr: $request $uri $server_name $request_uri $host';
+
+server {
+	listen 80 default_server;
+	server_name _;
+	access_log /var/log/nginx/root.log upstream_logging;
+	return 301 https://$host$request_uri;
+}
+server {
+	listen 443 ssl default_server;
+	server_name _;
+	root /var/www/html;
+	index index.html index.htm index.nginx-debian.html;
+	location / {
+		try_files $uri $uri/ =404;
+	}
+}
+```
+
+### Pi-hole webui on pihole.mydomain.com
+
+Then to access the web admin interface for pihole, I used another redirect, where the pihole is configured (on its config file) to use the port 8080, so I use a nginx reverse proxy to offer https over its http interface, with the Porkbun cert so I don't need to use local certs, that need to be set on each client.
+
+```bash
+server {
+	listen 443 ssl;
+	server_name pihole.mydomain.com;
+	access_log /var/log/nginx/pihole.log upstream_logging;
+	location = / {
+		return 301 https://$host$request_uri/admin;
+	}
+	location / {
+		proxy_pass http://127.0.0.1:8080;
+	}
+}
+```
+This is all on IPv4, that's why I used the IP instead of `localhost`. The first redirect is for convenience, so that we can just type `pihole.mydomain.com` and it opens the webui. The second one can't be a path because the pihole uses `api` URIs.
+
+### Zabbix behind a proxy too
+
+I used the same `location /` block on the Zabbix nginx config, that I copied from `/etc/zabbix/nginx.conf` into `/etc/nginx/sites-available/zabbix.mydomain.com.conf`, added that `server` block on top with `server_name zabbix.mydomain.com`, changed the log name, and changed the ports accordingly. In Zabbix's own server block, I just uncommented the `listen` line and set it to the same port. Now it also opens with HTTPS in the browser. It looks like so:
+```bash
+server {
+	listen 443 ssl;
+	server_name zabbix.mydomain.com;
+	access_log /var/log/nginx/zabbix.log upstream_logging;
+	location / {
+		proxy_pass http://127.0.0.1:8090;
+	}
+}
+
+server {
+        listen          8090;
+        root    /usr/share/zabbix/ui;
+
+        index   index.php;
+
+        client_max_body_size 5m;
+        .
+        .
+        .
+```
+
+
+### Main takeouts from configuring Nginx on an OrangePi
+
+So far I enjoyed the experience. It was a bit convoluted until I got the hang of how the nginx config hierarchy works, and learned that you need to test and reload the configs, and eventually restart it too. Sometimes I also had to reset the network connection on the clients, to avoid old cached redirects prevent me testing my new configs.
+
+To test, reload and restart `nginx` using `systemd`, do:
+```bash
+sudo nginx -t && sudo systemctl reload nginx && sudo systemctl restart nginx
+```
+And that's it, I hope I took note of all the main points, as this even if entertaining was also quite painful and if I ever have to go through it again, at least I have these notes.
+
+P.S.: Ah, and each one of those services I put in a separate file in `/etc/nginx/sites-available`, then symlinked each of them to `/etc/nginx/sites-enabled`. Once I deleted a file thinking I was deleting a link, and had to redo it from memory.
+
+
+
 
 ## Use porkcron to download your cert and key from Porkbun
 *2025-12-30 23:35:00-03:00*
+> **_NOTE:_** I am now using it via `systemd`, as I decided to use nginx directly on my OrangePI host.
 
 
 I made PR [#15](https://github.com/tmzane/porkcron/pull/15) to `tmzane/porkcron` which fixes the issue where the docker container failed to access its parent folder. I added hardlinks to avoid too many complications, but there are probably a cleaner way to do this.
@@ -17,7 +110,7 @@ Kindle accepts `.mobi` files directly, just copy them to the root `documents` fo
 
 To run multiple instances in parallel, converting all `.epub` files in current dir, and log each process into a `.log` with the same name, do:
 
-```
+```bash
 foreach x (*.epub) {
     echo -e "\n$x";
     ebook-convert $x .mobi > "$x".log 2>&1 & 
@@ -27,7 +120,7 @@ In the 3rd line, `>` redirects `stdin` to the file `"$x".log`, and `2>&1` redire
 
 
 ## Connect to `ssh` host when it is online:
-```
+```bash
 until nc -vzw 2 $host 22; do sleep 2; done && ssh $host
 ```
 Very useful when rebooting hosts (VMs, IoT).
@@ -35,7 +128,7 @@ Very useful when rebooting hosts (VMs, IoT).
 
 ## Run `docker compose` on `git` hook `post-receive`:
 In the git server (bare repo) write the script `post-receive` in the folder `hooks`, and make it executable and owned by `git:git`:
-```
+```bash
 #!/bin/bash
 TARGET="/srv/git/flaskwiki/flaskwiki"
 GIT_DIR="/srv/git/flaskwiki/flaskwiki.git"
@@ -53,13 +146,13 @@ echo "--- Deployment Complete ---"
 
 
 ## Log from Flask app:
-```
+```bash
 app.logger.warning(f'getting md files from {MARKDOWN_DIR}')
 ```
 Any level lower that `warning` requires config.
 
 
 ## Access logs from docker container:
-```
+```bash
 docker logs container_name
 ```
