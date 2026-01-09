@@ -1,6 +1,7 @@
 
 ## Nginx Reverse Proxy, a simple config in multiple files
 *2026-01-06 22:25:00-03:00*
+*edited in 2026-01-09 00:37:00-03:00*
 
 
 ### Main Entry Point and HTTPS redirect (mainhost.mydomain.com)
@@ -32,24 +33,27 @@ server {
 }
 ```
 
-### Pi-hole webui on pihole.mydomain.com
+### Pi-hole webui on myhost.mydomain.com/pihole
 
-Then to access the web admin interface for pihole, I used another redirect, where the pihole is configured (on its config file) to use the port 8080, so I use a nginx reverse proxy to offer https over its http interface, with the Porkbun cert so I don't need to use local certs, that need to be set on each client.
+Starting on [FTL v6.1](https://pi-hole.net/blog/2025/03/30/pi-hole-ftl-v6-1-web-v6-1-and-core-v6-0-6-released/) we can now set a `prefix` to use the Pi-Hole under a reverse proxy. I've set `webserver.paths.prefix="pihole"` and `webserver.paths.domain="host.mydomain.com"`. Then the nginx config looks like (according to [this forum thread](https://discourse.pi-hole.net/t/pihole-nginx-prefix-multiplexing-not-working/78511/5)):
 
 ```bash
 server {
 	listen 443 ssl;
-	server_name pihole.mydomain.com;
 	access_log /var/log/nginx/pihole.log upstream_logging;
-	location = / {
-		return 301 https://$host$request_uri/admin;
-	}
-	location / {
-		proxy_pass http://127.0.0.1:8080;
+	location /pihole/ {
+		proxy_pass http://127.0.0.1:8080/;
+
+		proxy_set_header Host $host;
+		proxy_set_header X-Real-IP $remote_addr;
+		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+		proxy_set_header X-Forwarded-Proto $scheme;
+
+		proxy_cookie_path / /pihole/;
 	}
 }
 ```
-This is all on IPv4, that's why I used the IP instead of `localhost`. The first redirect is for convenience, so that we can just type `pihole.mydomain.com` and it opens the webui. The second one can't be a path because the pihole uses `api` URIs.
+This is all on IPv4, that's why I used the IP instead of `localhost`. ~~The first redirect is for convenience, so that we can just type `pihole.mydomain.com` and it opens the webui. The second one can't be a path because the pihole uses `api` URIs.~~ No need for the redirect since we use the `prefix` now.
 
 ### Zabbix behind a proxy too
 
