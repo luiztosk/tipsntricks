@@ -1,3 +1,28 @@
+## List all files installed from a package
+```bash
+# dpkg -L gitweb
+/.
+/etc
+/etc/apache2
+/etc/apache2/conf-available
+/etc/apache2/conf-available/gitweb.conf
+/etc/gitweb.conf
+/usr
+/usr/lib
+/usr/lib/cgi-bin
+/usr/share
+/usr/share/doc
+/usr/share/doc/gitweb
+/usr/share/doc/gitweb/README
+/usr/share/doc/gitweb/README.Debian
+/usr/share/doc/gitweb/changelog.Debian.gz
+/usr/share/doc/gitweb/changelog.gz
+/usr/share/doc/gitweb/copyright
+/usr/share/doc/gitweb/examples
+/usr/share/doc/gitweb/examples/index.aux-generation
+/usr/lib/cgi-bin/gitweb.cgi
+```
+Very useful to find what config files the package already offers. I've been banging my head on the table this afternoon trying to make `gitweb` work with `nginx`, while it has a sample `apache2` config already, and serving it on a port, then proxying under nginx, seems much more simple than what I was trying to do with `fcgiwrap` and `perl` directly on `nginx`.
 
 ## Nginx Reverse Proxy, a simple config in multiple files
 *2026-01-06 22:25:00-03:00*
