@@ -1,3 +1,8 @@
+## Add Google Chrome repo to Tumbleweed to update with system
+```bash
+# zypper ar -f http://dl.google.com/linux/chrome/rpm/stable/x86_64 Google_Chrome_repository
+```
+
 ## List all files installed from a package
 ```bash
 # dpkg -L gitweb
