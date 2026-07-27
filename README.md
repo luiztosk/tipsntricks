@@ -1,3 +1,11 @@
+# Fish single-liners
+
+## transcode all `.mkv` files into HEVC (H265) entirely on VRAM (much faster, skips PCIe bus and System RAM)
+```fish
+for file in *.mkv; set file_mp4 (path basename -E $file).mp4; echo $file_mp4; if not test -f $file_mp4; ffmpeg -hwaccel cuda -hwaccel_output_format cuda -i $file -c:v hevc_nvenc -preset p1 $file_mp4; end; end
+```
+note that `-preset p1` is the same `fastest`, lowest quality but is giving 400+fps on a RTX 3060 for a 1080p video.
+
 ## Add Google Chrome repo to Tumbleweed to update with system
 ```bash
 # zypper ar -f http://dl.google.com/linux/chrome/rpm/stable/x86_64 Google_Chrome_repository
